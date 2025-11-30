@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Historique - CNN + MongoDB{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-container {
+        max-width: 1400px;
+        margin: 3rem auto;
+    }
+
+    .history-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .history-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .history-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .history-item {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .history-item:hover {
+        transform: translateY(-8px);
+    }
+
+    .history-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .history-content {
+        padding: 1.5rem;
+    }
+
+    .prediction-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .confidence-mini {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.8rem 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .confidence-mini-bar {
+        flex: 1;
+        height: 6px;
+        background: var(--bg-dark);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+
+    .confidence-mini-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: 3px;
+    }
+
+    .history-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .feedback-indicator {
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .feedback-correct {
+        background: rgba(100, 255, 100, 0.2);
+        color: var(--success);
+        border: 1px solid var(--success);
+    }
+
+    .feedback-incorrect {
+        background: rgba(255, 100, 100, 0.2);
+        color: var(--error);
+        border: 1px solid var(--error);
+    }
+
+    .no-history {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+
+    .no-history i {
+        font-size: 5rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container history-container">
+    <div class="history-header">
+        <h1><i class="fas fa-history"></i> Historique des Prédictions</h1>
+        <p style="color: var(--text-secondary); font-size: 1.1rem;">
+            Toutes vos prédictions stockées dans MongoDB
+        </p>
+    </div>
+
+    {% if predictions %}
+    <div class="history-grid">
+        {% for pred in predictions %}
+        <div class="card history-item" onclick="window.location.href='{{ url_for('result', prediction_id=pred._id) }}'">
+            <img src="{{ pred.image_url }}" alt="{{ pred.predicted_label }}" class="history-image">
+
+            <div class="history-content">
+                <span class="prediction-badge">{{ pred.predicted_label }}</span>
+
+                <div class="confidence-mini">
+                    <span>{{ (pred.confidence * 100) | round(1) }}%</span>
+                    <div class="confidence-mini-bar">
+                        <div class="confidence-mini-fill" style="width: {{ (pred.confidence * 100) }}%"></div>
+                    </div>
+                </div>
+
+                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
+                    <i class="fas fa-file-image"></i> {{ pred.original_filename }}
+                </div>
+
+                <div class="history-meta">
+                    <span>
+                        <i class="fas fa-clock"></i>
+                        {{ pred.created_at | datetime }}
+                    </span>
+
+                    {% if pred.user_feedback.is_correct is not none %}
+                    {% if pred.user_feedback.is_correct %}
+                    <span class="feedback-indicator feedback-correct">
+                        <i class="fas fa-check"></i> Correct
+                    </span>
+                    {% else %}
+                    <span class="feedback-indicator feedback-incorrect">
+                        <i class="fas fa-times"></i> {{ pred.user_feedback.true_label }}
+                    </span>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card no-history">
+        <i class="fas fa-inbox"></i>
+        <h2 style="margin-bottom: 1rem;">Aucune Prédiction</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+            Vous n'avez pas encore effectué de prédictions.
+        </p>
+        <a href="{{ url_for('predict') }}" class="btn btn-primary">
+            <i class="fas fa-upload"></i> Faire votre Première Prédiction
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

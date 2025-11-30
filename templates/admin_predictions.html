@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mt-4">Prédictions (Admin)</h1>
+    <p class="text-muted">Vue globale des prédictions. Filtrer via les paramètres `user`, `predicted_label`, `is_correct`.</p>
+
+    {% if predictions %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Utilisateur</th>
+                    <th>Image</th>
+                    <th>Prédiction</th>
+                    <th>Confiance</th>
+                    <th>Feedback</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in predictions %}
+                <tr>
+                    <td>{{ p._id }}</td>
+                    <td>{% if p.user_id %}{{ p.user_id }}{% else %}-{% endif %}</td>
+                    <td>
+                        {% if p.image_url %}
+                        <img src="{{ p.image_url }}" alt="thumb" style="height:40px;">
+                        {% endif %}
+                    </td>
+                    <td>{{ p.predicted_label }}</td>
+                    <td>{{ (p.confidence * 100) | round(1) }}%</td>
+                    <td>
+                        {% if p.user_feedback.is_correct is not none %}
+                            {% if p.user_feedback.is_correct %}
+                                <span class="badge bg-success">Correct</span>
+                            {% else %}
+                                <span class="badge bg-danger">Incorrect ({{ p.user_feedback.true_label }})</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">Pas de feedback</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.created_at | datetime }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">Aucune prédiction trouvée.</div>
+    {% endif %}
+</div>
+{% endblock %}

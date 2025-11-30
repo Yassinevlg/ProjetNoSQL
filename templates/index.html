@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil - CNN + MongoDB{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero {
+        text-align: center;
+        padding: 4rem 2rem;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .hero h1 {
+        font-size: 3.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .hero p {
+        font-size: 1.3rem;
+        color: var(--text-secondary);
+        line-height: 1.8;
+        margin-bottom: 2.5rem;
+    }
+
+    .cta-buttons {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
+        margin-top: 4rem;
+    }
+
+    .feature-card {
+        text-align: center;
+        padding: 2.5rem 1.5rem;
+    }
+
+    .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .feature-card h3 {
+        font-size: 1.4rem;
+        margin-bottom: 0.8rem;
+        color: var(--text-primary);
+    }
+
+    .feature-card p {
+        color: var(--text-secondary);
+        line-height: 1.6;
+    }
+
+    .stats-section {
+        margin-top: 4rem;
+        padding: 3rem;
+        background: var(--bg-card);
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        text-align: center;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    .stat-item {
+        padding: 1.5rem;
+        background: rgba(100, 100, 255, 0.1);
+        border-radius: 12px;
+        border: 1px solid rgba(100, 100, 255, 0.2);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="hero">
+        <h1>🤖 Interface CNN + MongoDB</h1>
+        <p>
+            Téléversez vos images et laissez notre réseau de neurones convolutionnel
+            identifier leur contenu. Toutes les prédictions sont stockées dans MongoDB
+            pour analyse et statistiques.
+        </p>
+        <div class="cta-buttons">
+            <a href="{{ url_for('predict') }}" class="btn btn-primary">
+                <i class="fas fa-upload"></i> Commencer une Prédiction
+            </a>
+            <a href="{{ url_for('history') }}" class="btn btn-primary"
+                style="background: linear-gradient(135deg, var(--secondary), var(--primary));">
+                <i class="fas fa-history"></i> Voir l'Historique
+            </a>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+        <div class="card feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-brain"></i>
+            </div>
+            <h3>Prédiction IA</h3>
+            <p>Modèle CNN entraîné pour classifier vos images avec précision</p>
+        </div>
+
+        <div class="card feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-database"></i>
+            </div>
+            <h3>Stockage NoSQL</h3>
+            <p>Toutes les prédictions sont sauvegardées dans MongoDB</p>
+        </div>
+
+        <div class="card feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h3>Statistiques Avancées</h3>
+            <p>Agrégations MongoDB pour analyser les performances</p>
+        </div>
+
+        <div class="card feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-comments"></i>
+            </div>
+            <h3>Feedback Utilisateur</h3>
+            <p>Améliorez le système avec vos retours</p>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    {% if total_predictions > 0 %}
+    <div class="stats-section">
+        <h2 style="margin-bottom: 0.5rem;">📊 Statistiques Globales</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Aperçu de l'activité du système</p>
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">{{ total_predictions }}</div>
+                <div class="stat-label">Prédictions Totales</div>
+            </div>
+
+            {% if model_info %}
+            <div class="stat-item">
+                <div class="stat-number">{{ model_info.num_classes }}</div>
+                <div class="stat-label">Classes du Modèle</div>
+            </div>
+
+            <div class="stat-item">
+                <div class="stat-number">{{ model_info.input_size[0] }}×{{ model_info.input_size[1] }}</div>
+                <div class="stat-label">Taille d'Entrée</div>
+            </div>
+            {% endif %}
+
+            <div class="stat-item">
+                <div class="stat-number">MongoDB</div>
+                <div class="stat-label">Base de Données</div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="stats-section">
+        <h2>🚀 Commencez Maintenant!</h2>
+        <p style="color: var(--text-secondary); margin-top: 1rem;">
+            Aucune prédiction n'a encore été effectuée. Téléversez votre première image!
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- Model Info -->
+    {% if model_info and model_info.classes %}
+    <div class="card" style="margin-top: 3rem; padding: 2.5rem;">
+        <h2 style="margin-bottom: 1rem;">
+            <i class="fas fa-cog"></i> Configuration du Modèle
+        </h2>
+        <div style="display: grid; gap: 1rem;">
+            <div>
+                <strong style="color: var(--primary-light);">Classes Reconnues:</strong>
+                <div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {% for class in model_info.classes %}
+                    <span
+                        style="padding: 0.4rem 0.8rem; background: rgba(100, 100, 255, 0.2); border-radius: 8px; border: 1px solid rgba(100, 100, 255, 0.3);">
+                        {{ class }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <strong style="color: var(--primary-light);">Type d'Image:</strong>
+                <span style="color: var(--text-secondary); margin-left: 0.5rem;">
+                    {% if model_info.grayscale %}Niveaux de gris{% else %}Couleur (RGB){% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
