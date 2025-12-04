@@ -150,13 +150,19 @@ class CNNModelLoader:
             img = img.convert('RGB')
         
         # Redimensionner à la taille attendue par le modèle
-        img = img.resize(self.input_size)
+        # self.input_size est (Height, Width) comme défini dans config.py
+        target_height, target_width = self.input_size
+        
+        # PIL.Image.resize attend (Width, Height)
+        img = img.resize((target_width, target_height))
         
         # Convertir en array numpy
         img_array = np.array(img)
         
         # Normaliser les pixels (0-255 -> 0-1)
-        img_array = img_array.astype('float32') / 255.0
+        # ATTENTION: Le modèle a déjà une couche Rescaling(1./255), donc on ne divise PAS ici !
+        img_array = img_array.astype('float32')
+        # img_array = img_array.astype('float32') / 255.0
         
         # Ajouter la dimension du canal si nécessaire
         if self.grayscale:

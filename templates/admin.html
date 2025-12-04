@@ -1,89 +1,197 @@
 {% extends "base.html" %}
 
+{% block title %}Administration - CNN MongoDB{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h1 class="display-5">🛠️ Administration</h1>
-        <p class="lead">Gestion des utilisateurs et vue globale</p>
+        <h1 class="display-5 mb-3"><i class="fas fa-cogs me-2"></i>Administration</h1>
+        <p class="lead text-muted">Gérez les utilisateurs et le modèle CNN.</p>
     </div>
 </div>
 
+<!-- Statistiques Rapides -->
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card bg-primary text-white h-100">
             <div class="card-body text-center">
-                <h3>{{ users|length }}</h3>
-                <p>Utilisateurs Inscrits</p>
+                <h3 class="display-4">{{ total_predictions }}</h3>
+                <p class="mb-0">Prédictions Totales</p>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card bg-success text-white h-100">
             <div class="card-body text-center">
-                <h3>{{ total_predictions }}</h3>
-                <p>Total Prédictions</p>
+                <h3 class="display-4">{{ active_users_count }}</h3>
+                <p class="mb-0">Utilisateurs Actifs</p>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card bg-info text-white h-100">
             <div class="card-body text-center">
-                <h3>{{ active_users_count }}</h3>
-                <p>Utilisateurs Actifs</p>
+                <h3 class="display-4">{{ stats.accuracy.accuracy|percentage if stats and stats.accuracy else 'N/A' }}
+                </h3>
+                <p class="mb-0">Précision Globale</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body text-center">
+                <h3 class="display-4">{{ training_runs|length }}</h3>
+                <p class="mb-0">Entraînements</p>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-light">
-        <h4 class="mb-0">Liste des Utilisateurs</h4>
+<div class="row">
+    <!-- Section Ré-entraînement -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-brain me-2"></i>Gestion du Modèle</h5>
+                <span class="badge bg-light text-dark">v1.0</span>
+            </div>
+            <div class="card-body">
+                <p>
+                    Le modèle actuel peut être ré-entraîné en utilisant les nouvelles données annotées par les
+                    utilisateurs.
+                    Cela permet d'améliorer la précision au fil du temps.
+                </p>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>{{ stats.true_labels_distribution|sum(attribute='count') if stats and
+                        stats.true_labels_distribution else 0 }}</strong>
+                    nouvelles images annotées disponibles pour l'entraînement.
+                </div>
+
+                <form action="{{ url_for('admin_retrain') }}" method="POST"
+                    onsubmit="return confirm('Êtes-vous sûr de vouloir lancer le ré-entraînement ? Cela peut prendre du temps.');">
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="fas fa-sync-alt me-2"></i>Relancer l'entraînement
+                        </button>
+                    </div>
+                </form>
+
+                <div class="d-grid mt-3">
+                    <a href="{{ url_for('admin_download_dataset') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-download me-2"></i>Télécharger le Dataset (ZIP)
+                    </a>
+                </div>
+
+                <hr>
+
+                <h6 class="mt-4 mb-3">Historique des entraînements</h6>
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Statut</th>
+                                <th>Images</th>
+                                <th>Durée</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for run in training_runs %}
+                            <tr>
+                                <td>{{ run.started_at|datetime }}</td>
+                                <td>
+                                    {% if run.status == 'success' %}
+                                    <span class="badge bg-success">Succès</span>
+                                    {% elif run.status == 'running' %}
+                                    <span class="badge bg-warning text-dark">En cours</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Échec</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ run.used_feedback_count }}</td>
+                                <td>
+                                    {% if run.ended_at %}
+                                    {{ ((run.ended_at - run.started_at).total_seconds()|round|int) }}s
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">Aucun entraînement enregistré</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Rôle</th>
-                        <th>Date Création</th>
-                        <th>Statut</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for user in users %}
-                    <tr>
-                        <td>{{ user.username }}</td>
-                        <td>{{ user.email }}</td>
-                        <td>
-                            {% if user.role == 'admin' %}
-                            <span class="badge bg-danger">Admin</span>
-                            {% else %}
-                            <span class="badge bg-secondary">User</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'N/A' }}</td>
-                        <td>
-                            {% if user.is_active %}
-                            <span class="badge bg-success">Actif</span>
-                            {% else %}
-                            <span class="badge bg-warning">Inactif</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <form method="POST" action="{{ url_for('admin_change_user_role', user_id=user._id) }}" class="d-flex g-2">
-                                <select name="role" class="form-select form-select-sm me-2" style="width:120px;">
-                                    <option value="user" {% if user.role!='admin' %}selected{% endif %}>User</option>
-                                    <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
-                                </select>
-                                <button class="btn btn-sm btn-primary" type="submit">OK</button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+    <!-- Section Utilisateurs -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-users me-2"></i>Utilisateurs</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Utilisateur</th>
+                                <th>Email</th>
+                                <th>Rôle</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle bg-primary text-white me-2"
+                                            style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                            {{ user.username[0]|upper }}
+                                        </div>
+                                        {{ user.username }}
+                                    </div>
+                                </td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    {% if user.role == 'admin' %}
+                                    <span class="badge bg-danger">Admin</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">User</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('admin_change_user_role', user_id=user._id) }}"
+                                        method="POST" class="d-inline">
+                                        {% if user.role == 'user' %}
+                                        <input type="hidden" name="role" value="admin">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            title="Promouvoir Admin">
+                                            <i class="fas fa-user-shield"></i>
+                                        </button>
+                                        {% else %}
+                                        <input type="hidden" name="role" value="user">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                            title="Rétrograder User">
+                                            <i class="fas fa-user"></i>
+                                        </button>
+                                        {% endif %}
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>

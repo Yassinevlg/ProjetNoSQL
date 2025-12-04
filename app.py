@@ -17,7 +17,7 @@ from werkzeug.utils import secure_filename
 from config import Config, allowed_file
 from utils.db_manager import DatabaseManager
 from model.model_loader import CNNModelLoader
-
+from model.trainer import ModelTrainer
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
@@ -32,6 +32,13 @@ db_manager = DatabaseManager(
     database_name=app.config['DATABASE_NAME']
 )
 
+# Initialiser le trainer
+model_trainer = ModelTrainer(
+    db_manager=db_manager,
+    model_dir=os.path.join(os.path.dirname(__file__), 'model'),
+    classes=app.config['MODEL_CLASSES']
+)
+
 # Initialiser et charger le modèle CNN
 cnn_model = CNNModelLoader(
     model_path=app.config['MODEL_PATH'],
@@ -41,12 +48,19 @@ cnn_model = CNNModelLoader(
 )
 
 # Charger le modèle au démarrage
-# Charger le modèle au démarrage
 print("=" * 60)
 print("Demarrage de l'application CNN + MongoDB")
 print("=" * 60)
 cnn_model.load_model()
 print("=" * 60)
+
+print("MODEL_PATH utilisé :", app.config['MODEL_PATH'])
+print("Classes du modèle (depuis app.config) :", app.config['MODEL_CLASSES'])
+
+# Essayer d'afficher l'état du mode démo si l'attribut existe
+print("Attributs du CNNModelLoader :", dir(cnn_model))
+print("Mode démo ? (demo_mode) :", getattr(cnn_model, "demo_mode", "inconnu"))
+print("Mode démo ? (is_demo)   :", getattr(cnn_model, "is_demo", "inconnu"))
 
 
 # ========== DÉCORATEURS ET UTILITAIRES ==========
@@ -60,6 +74,7 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -68,6 +83,7 @@ def admin_required(f):
             return redirect(url_for('index'))
         return f(*args, **kwargs)
     return decorated_function
+
 
 @app.context_processor
 def inject_user():
@@ -88,8 +104,6 @@ def register():
         password = request.form['password']
         
         # Créer l'utilisateur (par défaut 'user')
-        # Astuce: Si c'est le tout premier utilisateur, on peut le mettre admin
-        # Mais restons simple pour l'instant
         user_id = db_manager.create_user(username, email, password)
         
         if user_id:
@@ -99,6 +113,7 @@ def register():
             flash('Erreur: Cet email ou nom d\'utilisateur existe déjà.', 'error')
             
     return render_template('register.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -125,6 +140,7 @@ def login():
             
     return render_template('login.html')
 
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -136,20 +152,13 @@ def logout():
 
 @app.route('/')
 def index():
-    """Page d'accueil"""
-    try:
-        # Récupérer quelques statistiques pour la page d'accueil
-        total_predictions = db_manager.get_total_predictions()
-        model_info = cnn_model.get_model_info()
-        
-        return render_template(
-            'index.html',
-            total_predictions=total_predictions,
-            model_info=model_info
-        )
-    except Exception as e:
-        print(f"Erreur dans index: {e}")
-        return render_template('index.html', total_predictions=0, model_info={})
+    """Page d'accueil - redirige vers login ou predict selon l'état de connexion"""
+    if 'user_id' in session:
+        # Utilisateur connecté : rediriger vers la page de prédiction
+        return redirect(url_for('predict'))
+    else:
+        # Utilisateur non connecté : rediriger vers la page de connexion
+        return redirect(url_for('login'))
 
 
 @app.route('/predict', methods=['GET', 'POST'])
@@ -195,7 +204,7 @@ def predict():
             predicted_label=predicted_label,
             confidence=confidence,
             all_probabilities=all_probabilities,
-            user_id=session.get('user_id'), # Lier à l'utilisateur
+            user_id=session.get('user_id'),  # Lier à l'utilisateur
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string
         )
@@ -258,27 +267,41 @@ def history():
         return render_template('history.html', predictions=[])
 
 
-@app.route('/statistics')
-@admin_required
-def statistics():
-    """Page affichant les statistiques et agrégations MongoDB"""
-    try:
-        # Récupérer toutes les statistiques
-        stats = db_manager.get_global_statistics()
-        confusion_data = db_manager.get_confusion_data()
-        true_labels = db_manager.get_true_labels_distribution()
-        
-        return render_template(
-            'statistics.html',
-            stats=stats,
-            confusion_data=confusion_data,
-            true_labels=true_labels
-        )
-        
-    except Exception as e:
-        flash(f'Erreur lors de la récupération des statistiques: {str(e)}', 'error')
-        print(f"Erreur statistics: {e}")
-        return render_template('statistics.html', stats={}, confusion_data=[], true_labels=[])
+
+
+
+# ========== GESTIONNAIRES D'ERREURS ==========
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Page 404"""
+    return render_template('error.html', error_code=404, error_message="Page non trouvée"), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Page 500"""
+    return render_template('error.html', error_code=500, error_message="Erreur interne du serveur"), 500
+
+
+# ========== FILTRES JINJA PERSONNALISÉS ==========
+
+@app.template_filter('datetime')
+def format_datetime(value):
+    """Formater un datetime pour l'affichage"""
+    if value is None:
+        return ""
+    return value.strftime('%d/%m/%Y %H:%M:%S')
+
+
+@app.template_filter('percentage')
+def format_percentage(value):
+    """Formater un nombre décimal en pourcentage"""
+    if value is None:
+        return "0%"
+    return f"{value * 100:.2f}%"
+
+
 
 
 @app.route('/feedback/<prediction_id>', methods=['POST'])
@@ -346,15 +369,31 @@ def api_recent_predictions():
 def admin():
     """Dashboard admin: liste des utilisateurs et statistiques"""
     try:
+        # Récupérer les stats globales
+        stats = db_manager.get_global_statistics()
+        
+        # Récupérer l'historique des entraînements
+        training_runs = db_manager.get_all_training_runs()
+        print(f"DEBUG: training_runs count: {len(training_runs)}")
+        for run in training_runs:
+            print(f"DEBUG: run: {run}")
+        
+        # Récupérer les utilisateurs
         users = db_manager.get_all_users()
-        total_predictions = db_manager.get_total_predictions()
+        
+        # Calculer le nombre d'utilisateurs actifs
         active_users_count = sum(1 for u in users if u.get('is_active'))
+        
+        # Récupérer le nombre total de prédictions
+        total_predictions = stats.get('total_predictions', 0)
 
         return render_template(
             'admin.html',
             users=users,
             total_predictions=total_predictions,
-            active_users_count=active_users_count
+            active_users_count=active_users_count,
+            stats=stats,
+            training_runs=training_runs
         )
     except Exception as e:
         print(f"Erreur admin dashboard: {e}")
@@ -419,36 +458,141 @@ def admin_predictions():
         return redirect(url_for('admin'))
 
 
-# ========== GESTIONNAIRES D'ERREURS ==========
-
-@app.errorhandler(404)
-def page_not_found(e):
-    """Page 404"""
-    return render_template('error.html', error_code=404, error_message="Page non trouvée"), 404
 
 
-@app.errorhandler(500)
-def internal_error(e):
-    """Page 500"""
-    return render_template('error.html', error_code=500, error_message="Erreur interne du serveur"), 500
+
+@app.route('/admin/retrain', methods=['POST'])
+@login_required
+@admin_required
+def admin_retrain():
+    """Déclenche le ré-entraînement du modèle"""
+    try:
+        # Démarrer l'entraînement dans un thread séparé
+        import threading
+        
+        def train_async():
+            result = model_trainer.retrain()
+            if result['status'] == 'success' and 'model_path' in result:
+                try:
+                    print(f"🔄 Rechargement du nouveau modèle: {result['model_path']}")
+                    cnn_model.model_path = result['model_path']
+                    cnn_model.load_model()
+                except Exception as e:
+                    print(f"⚠️ Erreur lors du rechargement du modèle: {e}")
+        
+        thread = threading.Thread(target=train_async)
+        thread.daemon = True
+        thread.start()
+        
+        # Rediriger vers la page de progression
+        flash('Entraînement démarré ! Suivez la progression ci-dessous.', 'info')
+        return redirect(url_for('admin_training_progress'))
+            
+    except Exception as e:
+        flash(f"Erreur inattendue: {str(e)}", 'error')
+        return redirect(url_for('admin'))
 
 
-# ========== FILTRES JINJA PERSONNALISÉS ==========
-
-@app.template_filter('datetime')
-def format_datetime(value):
-    """Formater un datetime pour l'affichage"""
-    if value is None:
-        return ""
-    return value.strftime('%d/%m/%Y %H:%M:%S')
+@app.route('/admin/training_progress')
+@login_required
+@admin_required
+def admin_training_progress():
+    """Page de progression de l'entraînement"""
+    return render_template('training_progress.html')
 
 
-@app.template_filter('percentage')
-def format_percentage(value):
-    """Formater un nombre décimal en pourcentage"""
-    if value is None:
-        return "0%"
-    return f"{value * 100:.2f}%"
+@app.route('/api/training_status')
+@login_required
+@admin_required
+def api_training_status():
+    """API pour obtenir le statut d'entraînement en cours"""
+    try:
+        # Récupérer le dernier run d'entraînement
+        runs = db_manager.get_all_training_runs()
+        if not runs:
+            return jsonify({"status": "no_training", "message": "Aucun entraînement en cours"})
+        
+        latest_run = runs[0]
+        
+        response = {
+            "status": latest_run.get("status", "unknown"),
+            "started_at": latest_run.get("started_at").isoformat() if latest_run.get("started_at") else None,
+            "ended_at": latest_run.get("ended_at").isoformat() if latest_run.get("ended_at") else None,
+            "progress": latest_run.get("progress", 0),
+            "current_epoch": latest_run.get("current_epoch", 0),
+            "total_epochs": latest_run.get("total_epochs", 5),
+            "message": latest_run.get("message", ""),
+            "used_feedback_count": latest_run.get("used_feedback_count", 0),
+            "error_message": latest_run.get("error_message")
+        }
+        
+        return jsonify(response)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
+
+@app.route('/admin/download_dataset')
+@login_required
+@admin_required
+def admin_download_dataset():
+    """Télécharge le dataset complet (Kaggle + Feedback) sous forme de ZIP"""
+    try:
+        import shutil
+        import kagglehub
+        from pathlib import Path
+        
+        # 1. Localiser le dataset Kaggle
+        try:
+            # On utilise la même méthode que le trainer pour trouver le chemin
+            dataset_path = kagglehub.dataset_download("harshvardhan21/sign-language-detection-using-images")
+            dataset_path = Path(dataset_path)
+            
+            # Trouver le dossier de données réel
+            data_dir = None
+            for p in dataset_path.rglob('*'):
+                if p.is_dir():
+                    subdirs = [d for d in p.iterdir() if d.is_dir()]
+                    if len(subdirs) > 1:
+                        first_class = subdirs[0]
+                        if any(first_class.glob('*.jpg')) or any(first_class.glob('*.png')):
+                            data_dir = p
+                            break
+            
+            if not data_dir:
+                flash("Impossible de localiser le dossier de données source.", "error")
+                return redirect(url_for('admin'))
+                
+        except Exception as e:
+            flash(f"Erreur lors de la localisation du dataset: {e}", "error")
+            return redirect(url_for('admin'))
+
+        # 2. Créer une archive ZIP temporaire
+        # On va créer le zip dans le dossier temporaire du système ou uploads
+        zip_filename = f"dataset_sign_language_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        zip_path = os.path.join(app.config['UPLOAD_FOLDER'], zip_filename)
+        
+        # shutil.make_archive ajoute automatiquement l'extension .zip
+        print(f"Création de l'archive {zip_path}.zip depuis {data_dir}...")
+        shutil.make_archive(zip_path, 'zip', data_dir)
+        
+        final_zip_path = f"{zip_path}.zip"
+        
+        # 3. Envoyer le fichier
+        from flask import send_file
+        return send_file(
+            final_zip_path,
+            as_attachment=True,
+            download_name=f"{zip_filename}.zip",
+            mimetype='application/zip'
+        )
+        
+    except Exception as e:
+        print(f"Erreur download dataset: {e}")
+        flash(f"Erreur lors de la création de l'archive: {str(e)}", "error")
+        return redirect(url_for('admin'))
 
 
 # ========== POINT D'ENTRÉE ==========

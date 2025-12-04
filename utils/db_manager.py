@@ -8,6 +8,7 @@ from bson.objectid import ObjectId
 from typing import Dict, List, Optional, Any
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
 class DatabaseManager:
     """Gestionnaire de connexion et opérations MongoDB"""
     
@@ -29,19 +30,24 @@ class DatabaseManager:
             
             self.db = self.client[database_name]
             self.predictions = self.db['predictions']
-            self.users = self.db['users']  # Nouvelle collection
+            self.users = self.db['users']
+            self.training_runs = self.db['training_runs']
             print(f"Connecte a MongoDB: {database_name}")
             self.is_connected = True
             
         except Exception as e:
             print(f"Erreur de connexion MongoDB: {e}")
             # On ne lève pas d'erreur pour permettre à l'app de démarrer
+            self.client = None
+            self.db = None
             self.predictions = None
+            self.users = None
+            self.training_runs = None
             self.is_connected = False
 
     def close(self):
         """Ferme la connexion MongoDB"""
-        if hasattr(self, 'client'):
+        if hasattr(self, 'client') and self.client is not None:
             self.client.close()
 
     # ========== GESTION DES UTILISATEURS ==========
@@ -69,15 +75,17 @@ class DatabaseManager:
 
     def get_user_by_email(self, email):
         """Récupère un utilisateur par email"""
-        if not self.is_connected: return None
+        if not self.is_connected:
+            return None
         return self.users.find_one({"email": email})
         
     def get_user_by_id(self, user_id):
         """Récupère un utilisateur par ID"""
-        if not self.is_connected: return None
+        if not self.is_connected:
+            return None
         try:
             return self.users.find_one({"_id": ObjectId(user_id)})
-        except:
+        except Exception:
             return None
 
     def check_password(self, user_doc, password):
@@ -88,15 +96,22 @@ class DatabaseManager:
         
     def get_all_users(self):
         """Récupère tous les utilisateurs (pour admin)"""
-        if not self.is_connected: return []
-        return list(self.users.find({}, {"password_hash": 0})) # Exclure le hash
+        if not self.is_connected:
+            return []
+        # On exclut le hash du mot de passe
+        return list(self.users.find({}, {"password_hash": 0}))
 
     def get_predictions_by_user(self, user_id):
         """Récupère les prédictions d'un utilisateur spécifique"""
-        if not self.is_connected: return []
+        if not self.is_connected:
+            return []
         try:
-            return list(self.predictions.find({"user_id": ObjectId(user_id)}).sort("created_at", DESCENDING))
-        except:
+            return list(
+                self.predictions
+                .find({"user_id": ObjectId(user_id)})
+                .sort("created_at", DESCENDING)
+            )
+        except Exception:
             return []
 
     # ========== OPÉRATIONS D'INSERTION ==========
@@ -108,24 +123,12 @@ class DatabaseManager:
         predicted_label: str,
         confidence: float,
         all_probabilities: Dict[str, float],
-        user_id: Optional[str] = None,  # Nouveau champ
+        user_id: Optional[str] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None
     ) -> str:
         """
         Insère une nouvelle prédiction dans la base de données
-        
-        Args:
-            image_path: Chemin de l'image stockée
-            original_filename: Nom original du fichier
-            predicted_label: Classe prédite par le modèle
-            confidence: Score de confiance (probabilité max)
-            all_probabilities: Dictionnaire {classe: probabilité}
-            ip_address: Adresse IP de l'utilisateur (optionnel)
-            user_agent: User agent du navigateur (optionnel)
-            
-        Returns:
-            str: ID du document inséré
         """
         prediction_doc = {
             "image_path": image_path,
@@ -147,9 +150,13 @@ class DatabaseManager:
         
         # Ajouter l'ID utilisateur si connecté
         if user_id:
-            prediction_doc["user_id"] = ObjectId(user_id)
+            try:
+                prediction_doc["user_id"] = ObjectId(user_id)
+            except Exception:
+                # On ignore si l'ID est invalide
+                pass
         
-        if self.is_connected:
+        if self.is_connected and self.predictions is not None:
             try:
                 result = self.predictions.insert_one(prediction_doc)
                 return str(result.inserted_id)
@@ -161,65 +168,37 @@ class DatabaseManager:
     # ========== OPÉRATIONS DE LECTURE ==========
     
     def get_prediction_by_id(self, prediction_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Récupère une prédiction par son ID
-        
-        Args:
-            prediction_id: ID du document
-            
-        Returns:
-            Document de prédiction ou None si non trouvé
-        """
+        """Récupère une prédiction par son ID"""
         if not self.is_connected:
             return None
-            
         try:
             return self.predictions.find_one({"_id": ObjectId(prediction_id)})
         except Exception:
             return None
     
     def get_recent_predictions(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Récupère les dernières prédictions (triées par date décroissante)
-        
-        Args:
-            limit: Nombre maximum de prédictions à retourner
-            
-        Returns:
-            Liste des documents de prédiction
-        """
+        """Récupère les dernières prédictions (triées par date décroissante)"""
         if not self.is_connected:
             return []
-            
-        predictions = self.predictions.find().sort("created_at", DESCENDING).limit(limit)
+        predictions = (
+            self.predictions
+            .find()
+            .sort("created_at", DESCENDING)
+            .limit(limit)
+        )
         return list(predictions)
     
     def get_predictions_by_label(self, predicted_label: str) -> List[Dict[str, Any]]:
-        """
-        Récupère toutes les prédictions pour une classe donnée
-        
-        Args:
-            predicted_label: Classe prédite
-            
-        Returns:
-            Liste des documents de prédiction
-        """
+        """Récupère toutes les prédictions pour une classe donnée"""
         if not self.is_connected:
             return []
-            
         predictions = self.predictions.find({"predicted_label": predicted_label})
         return list(predictions)
     
     def get_predictions_with_feedback(self) -> List[Dict[str, Any]]:
-        """
-        Récupère uniquement les prédictions pour lesquelles un feedback a été fourni
-        
-        Returns:
-            Liste des documents avec feedback
-        """
+        """Récupère uniquement les prédictions pour lesquelles un feedback a été fourni"""
         if not self.is_connected:
             return []
-            
         predictions = self.predictions.find({
             "user_feedback.is_correct": {"$ne": None}
         })
@@ -235,14 +214,6 @@ class DatabaseManager:
     ) -> bool:
         """
         Met à jour le feedback utilisateur pour une prédiction
-        
-        Args:
-            prediction_id: ID de la prédiction
-            is_correct: True si la prédiction est correcte, False sinon
-            true_label: Label correct saisi par l'utilisateur (si incorrect)
-            
-        Returns:
-            bool: True si la mise à jour a réussi
         """
         if not self.is_connected:
             return False
@@ -269,16 +240,7 @@ class DatabaseManager:
     # ========== GESTIONS DES UTILISATEURS (MISES A JOUR) ==========
 
     def update_user_role(self, user_id: str, new_role: str) -> bool:
-        """
-        Modifie le rôle d'un utilisateur (ex: 'user' <-> 'admin')
-
-        Args:
-            user_id: ID MongoDB de l'utilisateur
-            new_role: Nouveau rôle ('user' ou 'admin')
-
-        Returns:
-            bool: True si la mise à jour a réussi
-        """
+        """Modifie le rôle d'un utilisateur (ex: 'user' <-> 'admin')"""
         if not self.is_connected:
             return False
 
@@ -293,9 +255,7 @@ class DatabaseManager:
             return False
 
     def set_user_active(self, user_id: str, is_active: bool) -> bool:
-        """
-        Active ou désactive un compte utilisateur
-        """
+        """Active ou désactive un compte utilisateur"""
         if not self.is_connected:
             return False
 
@@ -310,9 +270,7 @@ class DatabaseManager:
             return False
 
     def set_last_login(self, user_id: str) -> bool:
-        """
-        Met à jour le champ `last_login` pour un utilisateur donné
-        """
+        """Met à jour le champ `last_login` pour un utilisateur donné"""
         if not self.is_connected:
             return False
 
@@ -329,13 +287,6 @@ class DatabaseManager:
     def get_predictions(self, filter_query: Optional[Dict[str, Any]] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """
         Récupère des prédictions selon un filtre MongoDB (utilisé par l'admin)
-
-        Args:
-            filter_query: Dictionnaire de filtre MongoDB
-            limit: Nombre maximal de documents retournés
-
-        Returns:
-            Liste de documents de prédiction
         """
         if not self.is_connected:
             return []
@@ -343,7 +294,12 @@ class DatabaseManager:
         try:
             if filter_query is None:
                 filter_query = {}
-            cursor = self.predictions.find(filter_query).sort("created_at", DESCENDING).limit(limit)
+            cursor = (
+                self.predictions
+                .find(filter_query)
+                .sort("created_at", DESCENDING)
+                .limit(limit)
+            )
             return list(cursor)
         except Exception as e:
             print(f"Erreur get_predictions: {e}")
@@ -352,15 +308,7 @@ class DatabaseManager:
     # ========== OPÉRATIONS DE SUPPRESSION ==========
     
     def delete_prediction(self, prediction_id: str) -> bool:
-        """
-        Supprime une prédiction par son ID
-        
-        Args:
-            prediction_id: ID de la prédiction à supprimer
-            
-        Returns:
-            bool: True si la suppression a réussi
-        """
+        """Supprime une prédiction par son ID"""
         if not self.is_connected:
             return False
             
@@ -371,15 +319,9 @@ class DatabaseManager:
             return False
     
     def delete_all_predictions(self) -> int:
-        """
-        Supprime toutes les prédictions (utile pour les tests)
-        
-        Returns:
-            int: Nombre de documents supprimés
-        """
+        """Supprime toutes les prédictions (utile pour les tests)"""
         if not self.is_connected:
             return 0
-            
         result = self.predictions.delete_many({})
         return result.deleted_count
     
@@ -394,9 +336,6 @@ class DatabaseManager:
     def get_predictions_count_by_label(self) -> List[Dict[str, Any]]:
         """
         Nombre de prédictions par classe prédite (avec confiance moyenne)
-        
-        Returns:
-            Liste de dictionnaires {_id: classe, count: nombre, avg_confidence: confiance moyenne}
         """
         if not self.is_connected:
             return []
@@ -409,9 +348,7 @@ class DatabaseManager:
                     "avg_confidence": {"$avg": "$confidence"}
                 }
             },
-            {
-                "$sort": {"count": -1}
-            }
+            {"$sort": {"count": -1}}
         ]
         
         return list(self.predictions.aggregate(pipeline))
@@ -419,9 +356,6 @@ class DatabaseManager:
     def get_true_labels_distribution(self) -> List[Dict[str, Any]]:
         """
         Distribution des vraies classes (selon les feedbacks utilisateur)
-        
-        Returns:
-            Liste de dictionnaires {_id: classe, count: nombre}
         """
         if not self.is_connected:
             return []
@@ -438,9 +372,7 @@ class DatabaseManager:
                     "count": {"$sum": 1}
                 }
             },
-            {
-                "$sort": {"count": -1}
-            }
+            {"$sort": {"count": -1}}
         ]
         
         return list(self.predictions.aggregate(pipeline))
@@ -450,7 +382,7 @@ class DatabaseManager:
         Calcule le taux de bonnes prédictions (basé sur les feedbacks)
         
         Returns:
-            Dictionnaire avec total, correct, incorrect, accuracy
+            Dictionnaire avec total, correct, incorrect, accuracy (en %)
             Retourne None s'il n'y a pas de feedback
         """
         if not self.is_connected:
@@ -468,12 +400,20 @@ class DatabaseManager:
                     "total": {"$sum": 1},
                     "correct": {
                         "$sum": {
-                            "$cond": [{"$eq": ["$user_feedback.is_correct", True]}, 1, 0]
+                            "$cond": [
+                                {"$eq": ["$user_feedback.is_correct", True]},
+                                1,
+                                0
+                            ]
                         }
                     },
                     "incorrect": {
                         "$sum": {
-                            "$cond": [{"$eq": ["$user_feedback.is_correct", False]}, 1, 0]
+                            "$cond": [
+                                {"$eq": ["$user_feedback.is_correct", False]},
+                                1,
+                                0
+                            ]
                         }
                     }
                 }
@@ -488,7 +428,12 @@ class DatabaseManager:
                         "$cond": [
                             {"$eq": ["$total", 0]},
                             0,
-                            {"$multiply": [{"$divide": ["$correct", "$total"]}, 100]}
+                            {
+                                "$multiply": [
+                                    {"$divide": ["$correct", "$total"]},
+                                    100
+                                ]
+                            }
                         ]
                     }
                 }
@@ -502,9 +447,6 @@ class DatabaseManager:
         """
         Récupère les données pour construire une matrice de confusion
         (prédictions vs vraies classes selon feedback)
-        
-        Returns:
-            Liste de dictionnaires {predicted: ..., true: ..., count: ...}
         """
         if not self.is_connected:
             return []
@@ -535,21 +477,194 @@ class DatabaseManager:
         ]
         
         return list(self.predictions.aggregate(pipeline))
+
+    def get_per_class_accuracy(self) -> List[Dict[str, Any]]:
+        """
+        Accuracy par classe (basé sur les prédictions annotées avec feedback).
+        Retourne une liste de dicts :
+        { label, total, correct, accuracy (0-1) }
+        """
+        if not self.is_connected:
+            return []
+
+        pipeline = [
+            {
+                "$match": {
+                    "user_feedback.is_correct": {"$ne": None}
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$predicted_label",
+                    "total": {"$sum": 1},
+                    "correct": {
+                        "$sum": {
+                            "$cond": [
+                                {"$eq": ["$user_feedback.is_correct", True]},
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "label": "$_id",
+                    "total": 1,
+                    "correct": 1,
+                    "accuracy": {
+                        "$cond": [
+                            {"$eq": ["$total", 0]},
+                            0,
+                            {"$divide": ["$correct", "$total"]}
+                        ]
+                    }
+                }
+            },
+            {"$sort": {"label": 1}}
+        ]
+
+        return list(self.predictions.aggregate(pipeline))
     
     def get_global_statistics(self) -> Dict[str, Any]:
         """
         Retourne des statistiques globales pour le dashboard
-        
-        Returns:
-            Dictionnaire avec toutes les statistiques principales
         """
         total = self.get_total_predictions()
         accuracy_data = self.get_accuracy_rate()
         predictions_by_label = self.get_predictions_count_by_label()
+        per_class_accuracy = self.get_per_class_accuracy()
+        true_labels_dist = self.get_true_labels_distribution()
         
         return {
             "total_predictions": total,
-            "accuracy": accuracy_data,
+            "accuracy": accuracy_data,            # global (en %)
             "predictions_by_label": predictions_by_label,
+            "per_class_accuracy": per_class_accuracy,
+            "true_labels_distribution": true_labels_dist,
             "has_feedback": accuracy_data is not None
         }
+
+    # ========== GESTION DES ENTRAÎNEMENTS (TRAINING RUNS) ==========
+
+    def get_feedback_data_for_training(self) -> List[Dict[str, Any]]:
+        """
+        Récupère toutes les prédictions qui ont un feedback utilisateur complet (true_label).
+        Ces données seront utilisées pour ré-entraîner le modèle.
+        """
+        if not self.is_connected:
+            return []
+        
+        # On cherche les documents où user_feedback.true_label existe et n'est pas null
+        query = {
+            "user_feedback.true_label": {"$ne": None}
+        }
+        
+        # On ne récupère que les champs nécessaires
+        projection = {
+            "image_path": 1,
+            "user_feedback.true_label": 1,
+            "_id": 0
+        }
+        
+        return list(self.predictions.find(query, projection))
+
+    def create_training_run(self, base_dataset_info: str = "MNIST + Feedback") -> str:
+        """
+        Crée un nouveau log de session d'entraînement.
+        Statut initial: 'running'
+        """
+        if not self.is_connected:
+            return "mock_run_id"
+            
+        run_doc = {
+            "started_at": datetime.utcnow(),
+            "ended_at": None,
+            "status": "running",
+            "base_dataset_info": base_dataset_info,
+            "used_feedback_count": 0,
+            "model_path": None,
+            "error_message": None
+        }
+        
+        result = self.training_runs.insert_one(run_doc)
+        return str(result.inserted_id)
+
+    def update_training_run(
+        self, 
+        run_id: str, 
+        status: str, 
+        model_path: Optional[str] = None, 
+        used_feedback_count: int = 0,
+        error_message: Optional[str] = None
+    ) -> bool:
+        """
+        Met à jour un log d'entraînement (généralement à la fin).
+        """
+        if not self.is_connected:
+            return False
+            
+        update_data = {
+            "$set": {
+                "status": status,
+                "ended_at": datetime.utcnow(),
+                "used_feedback_count": used_feedback_count
+            }
+        }
+        
+        if model_path:
+            update_data["$set"]["model_path"] = model_path
+            
+        if error_message:
+            update_data["$set"]["error_message"] = error_message
+            
+        try:
+            result = self.training_runs.update_one(
+                {"_id": ObjectId(run_id)},
+                update_data
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            print(f"Erreur update_training_run: {e}")
+            return False
+
+    def update_training_progress(
+        self,
+        run_id: str,
+        progress: float,
+        current_epoch: int,
+        total_epochs: int,
+        message: str = ""
+    ) -> bool:
+        """
+        Met à jour la progression d'un entraînement en cours.
+        """
+        if not self.is_connected:
+            return False
+            
+        update_data = {
+            "$set": {
+                "progress": progress,
+                "current_epoch": current_epoch,
+                "total_epochs": total_epochs,
+                "message": message
+            }
+        }
+        
+        try:
+            result = self.training_runs.update_one(
+                {"_id": ObjectId(run_id)},
+                update_data
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            print(f"Erreur update_training_progress: {e}")
+            return False
+
+    def get_all_training_runs(self) -> List[Dict[str, Any]]:
+        """Récupère l'historique des entraînements"""
+        if not self.is_connected:
+            return []
+        return list(self.training_runs.find().sort("started_at", DESCENDING))
