@@ -6,344 +6,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CNN + MongoDB Interface{% endblock %}</title>
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         :root {
-            --primary: hsl(240, 85%, 60%);
-            --primary-dark: hsl(240, 85%, 50%);
-            --primary-light: hsl(240, 85%, 70%);
-            --secondary: hsl(280, 70%, 55%);
-            --success: hsl(140, 60%, 50%);
-            --error: hsl(0, 70%, 55%);
-            --warning: hsl(40, 95%, 55%);
-            --bg-dark: hsl(230, 25%, 8%);
-            --bg-card: hsl(230, 20%, 12%);
-            --bg-card-hover: hsl(230, 20%, 15%);
-            --text-primary: hsl(0, 0%, 98%);
-            --text-secondary: hsl(0, 0%, 70%);
-            --border: hsl(230, 20%, 20%);
+            --primary: #667eea;
+            --primary-dark: #5568d3;
+            --primary-light: #8b9dff;
+            --secondary: #764ba2;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --bg-dark: #0f0f1e;
+            --bg-card: rgba(255, 255, 255, 0.08);
+            --bg-card-hover: rgba(255, 255, 255, 0.12);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --border: rgba(255, 255, 255, 0.15);
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--bg-dark) 0%, hsl(250, 30%, 10%) 100%);
-            color: var(--text-primary);
             min-height: 100vh;
-            line-height: 1.6;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* Navigation */
-        nav {
-            background: rgba(15, 15, 30, 0.8);
+        .navbar {
+            background: rgba(15, 15, 30, 0.95) !important;
             backdrop-filter: blur(10px);
-            padding: 1.2rem 2rem;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
-        nav .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        nav .logo {
-            font-size: 1.6rem;
+        .navbar-brand {
             font-weight: 700;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 1.5rem;
         }
 
-        nav ul {
-            list-style: none;
-            display: flex;
-            gap: 2rem;
-        }
-
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-weight: 500;
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
             transition: all 0.3s ease;
-            position: relative;
+            font-weight: 500;
         }
 
-        nav a:hover {
-            color: var(--primary-light);
+        .nav-link:hover {
+            color: #667eea !important;
         }
 
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--primary);
-            transition: width 0.3s ease;
+        .btn-login {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 600;
         }
 
-        nav a:hover::after {
-            width: 100%;
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
         }
 
-        /* Container */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
+        .btn-logout {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 600;
         }
 
-        /* Cards */
+        .btn-logout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            border: none;
+            color: white !important;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        main {
+            padding: 2rem 0;
+            min-height: calc(100vh - 200px);
+        }
+
         .card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 2rem;
-            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.08) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(10px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             transition: all 0.3s ease;
         }
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 12px 48px rgba(100, 100, 255, 0.2);
-            background: var(--bg-card-hover);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
+            background: rgba(255, 255, 255, 0.12) !important;
         }
 
-        /* Buttons */
-        .btn {
-            padding: 0.8rem 1.8rem;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 1rem;
+        .card-header {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
+        .card-body {
+            color: rgba(255, 255, 255, 0.9);
         }
 
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(100, 100, 255, 0.4);
-        }
-
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-
-        .btn-error {
-            background: var(--error);
-            color: white;
-        }
-
-        /* Flash Messages */
-        .flash-messages {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-        }
-
-        .flash {
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            animation: slideIn 0.3s ease;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        }
-
-        .flash-success {
-            background: linear-gradient(135deg, var(--success), hsl(140, 60%, 40%));
-            border-left: 4px solid hsl(140, 60%, 60%);
-        }
-
-        .flash-error {
-            background: linear-gradient(135deg, var(--error), hsl(0, 70%, 45%));
-            border-left: 4px solid hsl(0, 70%, 65%);
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* Form Elements */
-        input[type="file"] {
-            display: none;
-        }
-
-        .file-upload-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.8rem;
-            padding: 3rem;
-            border: 2px dashed var(--border);
-            border-radius: 16px;
-            background: var(--bg-card);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            justify-content: center;
-            font-size: 1.1rem;
-        }
-
-        .file-upload-label:hover {
-            border-color: var(--primary);
-            background: var(--bg-card-hover);
-        }
-
-        /* Footer */
         footer {
+            background: rgba(15, 15, 30, 0.95);
+            padding: 1.5rem 0;
+            margin-top: 3rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
-            padding: 2rem;
-            color: var(--text-secondary);
-            margin-top: 4rem;
-            border-top: 1px solid var(--border);
+            color: rgba(255, 255, 255, 0.6);
         }
 
-        /* Form Styles */
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
+        /* Improve text visibility */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            color: white !important;
         }
 
-        .form-control {
-            width: 100%;
-            padding: 0.8rem;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            font-family: inherit;
+        p {
+            color: rgba(255, 255, 255, 0.8);
         }
 
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(100, 100, 255, 0.2);
-        }
-
-        .d-grid {
-            display: grid;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .mb-3 {
-            margin-bottom: 1rem;
-        }
-
-        .mb-4 {
-            margin-bottom: 1.5rem;
-        }
-
-        .mt-3 {
-            margin-top: 1rem;
-        }
-
-        .alert {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-
-        .alert-error {
-            background: rgba(255, 50, 50, 0.2);
-            border: 1px solid var(--error);
-        }
-
-        .alert-success {
-            background: rgba(50, 200, 100, 0.2);
-            border: 1px solid var(--success);
-        }
-
-        /* Table Styles */
+        /* Table styling */
         .table {
-            width: 100%;
-            border-collapse: collapse;
+            color: rgba(255, 255, 255, 0.9);
         }
 
-        .table th,
+        .table th {
+            color: white !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+
         .table td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .badge {
-            padding: 0.3rem 0.6rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .bg-danger {
-            background: var(--error);
-        }
-
-        .bg-success {
-            background: var(--success);
-        }
-
-        .bg-secondary {
-            background: var(--text-secondary);
-            color: var(--bg-dark);
-        }
-
-        .bg-warning {
-            background: var(--warning);
-            color: var(--bg-dark);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            nav ul {
-                gap: 1rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
+            border-color: rgba(255, 255, 255, 0.1) !important;
         }
     </style>
 
@@ -352,40 +180,77 @@
 
 <body>
     <!-- Navigation -->
-    <nav>
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
-            <div class="logo">
-                <i class="fas fa-brain"></i> CNN Interface
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-brain me-2"></i>CNN Interface
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if session.get('user_id') %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('predict') }}">
+                            <i class="fas fa-upload me-1"></i> Prédiction
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('history') }}">
+                            <i class="fas fa-history me-1"></i> Historique
+                        </a>
+                    </li>
+
+                    {% if session.get('role') == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin') }}">
+                            <i class="fas fa-cogs me-1"></i> Admin
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('project') }}">
+                            <i class="fas fa-info-circle me-1"></i> À propos
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex align-items-center">
+                    {% if session.get('user_id') %}
+                    <span class="text-light me-3">
+                        <i class="fas fa-user-circle me-1"></i>{{ session.get('username', 'Utilisateur') }}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="btn btn-logout">
+                        <i class="fas fa-sign-out-alt me-1"></i>Déconnexion
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-login me-2">
+                        <i class="fas fa-sign-in-alt me-1"></i>Connexion
+                    </a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-light">
+                        <i class="fas fa-user-plus me-1"></i>Inscription
+                    </a>
+                    {% endif %}
+                </div>
             </div>
-            <ul>
-                <li><a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Accueil</a></li>
-
-                {% if current_user %}
-                <li><a href="{{ url_for('predict') }}"><i class="fas fa-upload"></i> Prédiction</a></li>
-                <li><a href="{{ url_for('history') }}"><i class="fas fa-history"></i> Historique</a></li>
-
-                {% if current_user.role == 'admin' %}
-                <li><a href="{{ url_for('admin') }}" style="color: var(--warning);"><i
-                            class="fas fa-tools"></i> Admin</a></li>
-                {% endif %}
-
-                <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Déconnexion</a></li>
-                {% else %}
-                <li><a href="{{ url_for('login') }}"><i class="fas fa-sign-in-alt"></i> Connexion</a></li>
-                <li><a href="{{ url_for('register') }}" class="btn btn-primary"
-                        style="padding: 0.4rem 1rem; font-size: 0.9rem;">Inscription</a></li>
-                {% endif %}
-            </ul>
         </div>
     </nav>
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-    <div class="flash-messages">
+    <div class="container mt-3">
         {% for category, message in messages %}
-        <div class="flash flash-{{ category }}">
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+            role="alert">
             {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         {% endfor %}
     </div>
@@ -394,25 +259,20 @@
 
     <!-- Main Content -->
     <main>
-        {% block content %}{% endblock %}
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
     </main>
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2024 CNN + MongoDB Interface | Projet NoSQL</p>
+        <p class="mb-0">&copy; 2025 CNN + MongoDB Interface | Projet NoSQL</p>
     </footer>
 
-    {% block extra_js %}{% endblock %}
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <script>
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(() => {
-            document.querySelectorAll('.flash').forEach(flash => {
-                flash.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => flash.remove(), 300);
-            });
-        }, 5000);
-    </script>
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

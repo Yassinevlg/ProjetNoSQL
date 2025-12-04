@@ -262,12 +262,20 @@ class ModelTrainer:
             except Exception as e:
                 print(f"⚠️ Erreur copie modèle principal: {e}")
             
-            # 8. Update log
+            # 8. Update log avec l'historique d'entraînement
+            training_history = {
+                'accuracy': [float(x) for x in history.history.get('accuracy', [])],
+                'val_accuracy': [float(x) for x in history.history.get('val_accuracy', [])],
+                'loss': [float(x) for x in history.history.get('loss', [])],
+                'val_loss': [float(x) for x in history.history.get('val_loss', [])]
+            }
+            
             self.db_manager.update_training_run(
                 run_id=run_id,
                 status="success",
                 model_path=new_model_path,
-                used_feedback_count=0
+                used_feedback_count=0,
+                training_history=training_history
             )
             
             return {

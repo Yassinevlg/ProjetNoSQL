@@ -598,7 +598,8 @@ class DatabaseManager:
         status: str, 
         model_path: Optional[str] = None, 
         used_feedback_count: int = 0,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
+        training_history: Optional[Dict[str, Any]] = None
     ) -> bool:
         """
         Met à jour un log d'entraînement (généralement à la fin).
@@ -619,6 +620,9 @@ class DatabaseManager:
             
         if error_message:
             update_data["$set"]["error_message"] = error_message
+            
+        if training_history:
+            update_data["$set"]["training_history"] = training_history
             
         try:
             result = self.training_runs.update_one(
